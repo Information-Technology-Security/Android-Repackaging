@@ -65,259 +65,265 @@
 
 # Project Overview
 
-This project investigates the potential relationship between socio-economic factors—specifically unemployment and poverty rates and incidents of police killings across various U.S. states between 2015 and 2016
+This laboratory project demonstrates an **Android Repackaging Attack**, a technique in which a legitimate Android application is disassembled, modified to include malicious functionality, and then reassembled and redistributed.  
+In this scenario, the injected malicious code is triggered by a system event and is capable of either deleting a victim’s contacts or tracking the victim’s location.
 
 ---
 
 ## Table of Contents
 
-| Section | Folder | Description |
-|------:|--------|-------------|
-| 1 | `assign/` | Assignment material for the Business Data & Management course |
-| 1.1 | `assign/Assignment-BDMGMT-Apr24.pdf` | Assignment description in English |
-| 1.2 | `assign/Εργασία-ΔΧΜΚ-Απρ24.pdf` | Assignment description in Greek |
-| 2 | `docs/` | Documentation and reports on US police killings |
-| 2.1 | `docs/Police-Killings-US.pdf` | English report |
-| 2.2 | `docs/Δολοφονίες-Αστυνομικών-ΗΠΑ.pdf` | Greek report |
-| 3 | `graphs/` | Visualizations and charts of datasets |
-| 3.1 | `graphs/2015-*.png` | Various 2015 charts: elbow method, optimal clusters, percentages, logs |
-| 3.2 | `graphs/2016-*.png` | Various 2016 charts: elbow method, optimal clusters, percentages, logs |
-| 3.3 | `graphs/avg-*.png` | Average charts across years |
-| 3.4 | `graphs/Clustering3-*.png` | Charts for 3-dataset clustering experiments |
-| 4 | `src/` | Source code, datasets, and notebooks |
-| 4.1 | `src/datasets/` | Raw datasets in CSV and JSON formats |
-| 4.2 | `src/jupyter/` | Jupyter notebooks for analysis and preprocessing |
-| 4.3 | `src/processed_datasets/` | Cleaned and processed datasets |
-| 4.4 | `src/python/` | Python scripts for clustering and preprocessing |
-| 5 | `README.md` | Repository overview, instructions, and summary |
+| Section | Path / File | Description |
+|--------:|-------------|-------------|
+| 1 | `assign/` | Official laboratory exercise specifications |
+| 1.1 | `assign/Exercise 4 (Android Repackaging)_2023.pdf` | Assignment description (English) |
+| 1.2 | `assign/Άσκηση 4 (Android Repackaging)_2023.pdf` | Assignment description (Greek) |
+| 2 | `docs/` | Project report and analysis |
+| 2.1 | `docs/Android-Repackaging.pdf` | Technical report (English) |
+| 2.2 | `docs/Ανασυσκευασία-Εφαρμογών-Android.pdf` | Technical report (Greek) |
+| 3 | `manuals/` | Reference manuals and lab environment documentation |
+| 3.1 | `manuals/AndroidVM.html` | Android virtual machine setup guide |
+| 3.2 | `manuals/SEEDAndroid_UserManual.pdf` | SEED Android user manual |
+| 3.3 | `manuals/SEEDAndroid_VirtualBox.pdf` | SEED Android VirtualBox configuration |
+| 4 | `screens/` | Experimental screenshots and step-by-step evidence |
+| 5 | `README.md` | Repository overview and usage notes |
 
-## Project Overview
+## Environment Setup
+The attack is carried out using two virtual machines connected to the same **NAT network**:
 
-The research explores whether states with higher levels of unemployment and poverty also exhibit higher frequencies of police brutality. By grouping data into clusters, the study seeks to identify patterns and correlations that can inform social policy and crime understanding.
+- **Attacker Environment:** SEEDUbuntu 16.04 (32-bit)
+- **Victim Environment:** SEEDAndroid
 
 ---
 
-## Key Objectives
-
-- **Correlation Analysis**  
-  Investigating whether unemployment rates correlate with homicide incidents.
-
-- **Pattern Detection**  
-  Using clustering techniques to observe geographical and economic patterns in police killings.
-
-- **Policy Support**  
-  Providing data-driven insights for sociologists, economists, and policymakers to address social issues.
+## Tools Used
+- **adb (Android Debug Bridge):** Used to communicate with the Android VM and install applications.
+- **apktool:** Used to disassemble and rebuild APK files.
+- **keytool & jarsigner:** Used to generate digital keys and sign the modified APK so it can be installed on Android devices.
 
 ---
 
-## Datasets
+## Attack Workflow
 
-The analysis utilizes three primary datasets sourced from platforms such as **Kaggle** and **Opendatasoft**:
+### 1. Application Dismantling
+The target application (`RepackagingLab.apk`) is disassembled to access its internal components:
 
-- **Police Killings Dataset**  
-  Includes data on victims (age, sex, race), location (state/city), cause of death, and whether body cameras were used.
+```bash
+apktool d RepackagingLab.apk
+```
+This process produces:
+- **smali files**: Compiled Java bytecode representation
+- `AndroidManifest.xml`: Application configuration and permissions
+- **Resources**: Layouts, assets, and metadata
 
-- **Unemployment / Poverty Dataset**  
-  Contains poverty rates and absolute numbers of unemployed individuals per state.
+### 2. Malicious Code Injection
+#### Smali Integration:
+Malicious code (e.g., `MaliciousCode.smali`) is inserted into the application’s directory structure (such as `/smali/com`).
 
-- **US City Populations Dataset**  
-  Experimental data for cities with more than 65,000 inhabitants, used to normalize results against total state populations.
+#### Manifest Modification:
+The `AndroidManifest.xml` file is altered to:
+- Request unauthorized permissions (e.g., `READ_CONTACTS`, `WRITE_CONTACTS`)
+- Register a custom BroadcastReceiver
 
----
+#### Trigger Event:
+The malicious logic is configured to execute when a `TIME_SET` broadcast event occurs (i.e., when the system time is changed).
 
-## Methodology
+### 3. Reassembling and Signing
+After modifications, the application must be rebuilt and digitally signed:
+```bash
+apktool b RepackagingLab
+```
+```bash
+keytool -genkey -v -keystore mykey.keystore -alias dist
+```
+```bash
+jarsigner -keystore mykey.keystore RepackagingLab.apk dist
+```
 
-The team employed **Cluster Analysis** using the **K-Means algorithm**. This method was chosen for its efficiency with relatively small datasets (51 entries) and its ability to detect hidden patterns without requiring pre-labeled data.
+Signing is required because Android will not install unsigned or tampered applications.
 
----
+### 4. Execution and Verification
+The signed malicious APK is installed on the victim device using:
+```bash
+adb install RepackagingLab.apk
+```
 
-## Data Preprocessing
-
-- **Time Alignment**  
-  Data was pruned to include only the years **2015 and 2016** to ensure a common temporal scale.
-
-- **Morphology Normalization**  
-  State names were standardized to abbreviations (e.g., *New York → NY*) to enable successful dataset joining.
-
-- **Normalization**  
-  Logarithmic normalization and standard deviation scaling were applied to account for significant differences in population size between states.
-
-- **Handling Data Gaps**  
-  States with zero recorded murders (e.g., *Rhode Island in 2015*) were manually assigned a value of `0` rather than being omitted.
-
----
-
-## Evaluation Metrics
-
-To assess cluster quality, the following non-predictive evaluation metrics were used:
-
-- **SSE (Sum of Squared Error)**  
-  Measures the deviation of actual values from cluster centroids, indicating how close data points are within clusters.
-
-- **Silhouette Coefficient**  
-  Measures how well data points are separated between clusters; values closer to `1` indicate better clustering.
-
----
-
-## Experimental Results
-
-The analysis was conducted in **four distinct stages**, progressing from percentage-based metrics to log-normalized absolute values to improve accuracy.
-
-| Analysis Stage       | Metric      | Year 2015 | Year 2016 |
-|----------------------|-------------|-----------|-----------|
-| Percentage Rates     | SSE         | 25,464    | 29,151    |
-|                      | Silhouette  | 0.518     | 0.495     |
-| Net Numbers          | SSE         | 18,885    | 19,478    |
-|                      | Silhouette  | 0.481     | 0.484     |
-| Log Normalized       | SSE         | 22,391    | —         |
-|                      | Silhouette  | 0.554     | —         |
+Once the victim grants the requested permissions and a system time change occurs, the registered BroadcastReceiver activates and executes the injected smali code.
 
 ---
 
+## Scenarios Covered
+### Contact Deletion
+Upon the `TIME_SET` event, the malicious code deletes all contacts stored on the victim’s device.
 
-## Technologies Used
-
-- **Programming Language:** Python 3  
-- **Data Analysis & Machine Learning:**  
-  - K-Means Clustering (Unsupervised Learning)  
-  - Z-score Normalization  
-  - Logarithmic Normalization  
-- **Big Data & Statistical Concepts:**  
-  - Cluster Analysis  
-  - Socio-economic Data Correlation  
-  - Population Normalization Factors  
-- **Data Structures:**  
-  - Pandas DataFrames  
-  - NumPy Arrays  
-- **Libraries & Frameworks:**  
-  - `pandas` (data loading, preprocessing, merging)  
-  - `numpy` (numerical operations, transformations)  
-  - `scikit-learn` (KMeans, Silhouette Coefficient, SSE)  
-  - `scipy` (`zscore` normalization)  
-  - `matplotlib` (data visualization)  
-  - `json` (US states name mapping)  
-  - `os` (console handling)  
-- **Development Environment:**  
-  - Python scripts (`.py`)  
-  - Jupyter Notebooks (`.ipynb`)  
+### Location Tracking
+The malicious code retrieves the victim’s GPS coordinates (simulated via MockLocation) and sends them to an attacker-controlled web server.
 
 ---
 
-# Installation & Run Guide
+## Conclusion
+
+This lab highlights how Android repackaging attacks exploit user trust in legitimate applications. By modifying application code and abusing system broadcasts and permissions, attackers can introduce severe privacy and security threats. The exercise emphasizes the importance of application integrity checks, trusted distribution channels, and careful permission management in Android environments.
+
+---
+
+# Installation & Setup Guide
+
+This guide describes how to set up the required environment to reproduce the Android Repackaging Attack laboratory exercise using the SEED virtual machines.
 
 ## Prerequisites
+### 1. Host System Requirements
+- Host OS: Windows / Linux / macOS
+- Virtualization Software:
+  - Oracle VirtualBox (recommended)
+- Minimum Hardware:
+  - 8 GB RAM (4 GB minimum)
+  - CPU with virtualization enabled (Intel VT-x / AMD-V)
+  - ~20 GB free disk space
 
-This project requires **Python 3** to be installed on your system.
+### 2. Virtual Machines Required
+Two virtual machines are required and must be connected to the same NAT Network.
 
-Verify your Python installation by running:
+#### Attacker VM
+- SEEDUbuntu 16.04 (32-bit)
+- Used for:
+  - APK disassembly
+  - Malicious code injection
+  - Repackaging and signing
+
+#### Victim VM
+- SEEDAndroid
+- Used for:
+  - Installing and executing the repackaged APK
+  - Observing malicious behavior
+
+---
+
+## Virtual Machine Setup
+### Step 1: Import SEEDUbuntu 16.04 (Attacker)
+1. Download the SEEDUbuntu 16.04 (32-bit) VM image.
+2. Open VirtualBox → File → Import Appliance.
+3. Select the SEEDUbuntu .ova file.
+4. Assign:
+    - RAM: ≥ 2048 MB
+    - CPU: ≥ 1 core
+5. Import the appliance.
+
+### Step 2: Import SEEDAndroid (Victim)
+1. Download the SEEDAndroid VM image.
+2. Import it into VirtualBox using the same procedure.
+3. Do not start the VM yet.
+
+### Step 3: Configure Networking (Critical)
+Both VMs must be on the same NAT Network.
+For each VM:
+1. Settings → Network
+2. Adapter 1:
+    - Attached to: NAT Network
+    - Name: e.g. seed-nat
+
+This enables communication between the attacker and victim environments.
+
+---
+
+## Attacker Environment Setup (SEEDUbuntu)
+### Step 4: Update System Packages
 ```bash
-python --version
+sudo apt update
+sudo apt upgrade
 ```
-or
+
+### Step 5: Install Required Tools
+1. Java Development Kit (JDK)
 ```bash
-python3 --version
+sudo apt install openjdk-8-jdk
 ```
-If Python is not installed, download it from:
-
-https://www.python.org/downloads/
-
-Additionally, install the required Python libraries:
-
+Verify:
 ```bash
-pip install pandas numpy scikit-learn scipy matplotlib
+java --version
 ```
-
-## Installation
-Clone the repository to your local machine:
-
+2. apktool
 ```bash
-git clone https://github.com/Big-Data-Management-aka-Uniwa/US-Police-Killing-Search.git
+sudo apt install apktool
 ```
-
-Navigate to the project directory:
+Verify:
 ```bash
-cd US-Police-Killing-Search/src/python
+apktool
 ```
-
-Ensure the following folder structure exists:
-
-```
-datasets/
-processed_datasets/
-```
-
-## Data Preprocessing
-Before running the clustering experiments, preprocess the raw datasets:
-
+3. Android Debug Bridge (adb)
 ```bash
-python preprocessData.py
+sudo apt install adb
 ```
-
-This step:
-- Filters police killing and poverty data for 2015–2016
-- Normalizes U.S. state names to two-letter abbreviations
-- Computes population statistics
-- Produces cleaned datasets in processed_datasets/
-- Generates average datasets for 2015–2016
-
-### Run Clustering (2 Datasets)
-Execute clustering using Police Killings & Poverty datasets:
-
+Verify:
 ```bash
-python Clustering_2_Datasets.py
+adb version
 ```
-You will be prompted to select:
-- Year (2015 / 2016 / Average)
-- Data representation (rates, absolute numbers, logarithmic normalization)
-- Number of clusters (k)
-
-The program outputs:
-- Cluster visualizations
-- SSE (Sum of Squared Errors)
-- Silhouette Coefficient
-- Elbow Method plot for optimal k
-
-## Run Clustering (3 Datasets)
-Execute clustering with Police Killings, Poverty, and Population normalization:
-
+4. Keytool & Jarsigner
+These are included with the JDK installation.
+Verify:
 ```bash
-python Clustering_3_Datasets.py
+keytool -help
+jarsigner -help
 ```
-This version:
-- Normalizes killings and poverty by total state population
-- Performs K-Means clustering
-- Visualizes clusters and centroids
-- Reports SSE and Silhouette metrics
 
-## Jupyter Notebook Support
-All source files are also implemented as Jupyter Notebooks (.ipynb), allowing:
-- Interactive execution
-- Step-by-step analysis
-- Inline visualizations
+---
 
-Launch Jupyter Notebook with:
+## Victim Environment Setup (SEEDAndroid)
+### Step 6: Enable Developer Options
+Inside the SEEDAndroid VM:
+- Open Settings
+- Go to About Tablet / Phone
+- Tap Build Number multiple times to enable Developer Mode
+- Enable:
+  - USB Debugging
+  - Mock Locations (if required for the location attack)
+
+### Step 7: Verify ADB Connectivity
+On SEEDUbuntu:
 ```bash
-jupyter notebook
+adb devices
 ```
-
-Then open the corresponding .ipynb files by navigating to project directory
-
-Navigate to the project directory:
+You should see the SEEDAndroid device listed.
+If not:
 ```bash
-cd US-Police-Killing-Search/src/jupyter
+adb kill-server
+adb start-server
 ```
 
-## Output
-- Cluster scatter plots with centroids
-- Quantitative clustering metrics (SSE, Silhouette Coefficient)
-- CSV files containing processed and merged datasets
+---
 
-The analysis terminates after all clusters and evaluation metrics are displayed.
+## Repository Setup
+### Step 8: Clone the Repository
+```bash
+git clone https://github.com/Information-Technology-Security/Android-Repackaging.git
+cd Android-Repackaging
+```
+
+---
+
+## Ready-to-Use Environment
+At this point, the environment is fully configured and ready for:
+- APK disassembly using apktool
+- Smali code modification
+- Manifest permission injection
+- APK rebuilding and signing
+- Deployment to the Android VM via adb
+
+Proceed to the Attack Workflow section of this repository to execute the repackaging scenarios.
+
+---
+
+## Notes & Troubleshooting
+- Always sign the rebuilt APK before installation.
+- Unsigned or improperly signed APKs will fail to install.
+- Ensure both VMs remain on the same NAT Network.
+- Use 32-bit SEEDUbuntu only, as required by the lab.
 
 ---
 
 ## Open the Documentation
 1. Navigate to the `docs/` directory
 2. Open the report corresponding to your preferred language:
-    - English: `Police-Killings-US.pdf`
-    - Greek: `Δολοφονίες-Αστυνομικών-ΗΠΑ.pdf`
+    - English: `Android-Repackaging.pdf`
+    - Greek: `Ανασυσκευασία-Εφαρμογών-Android.pdf`
+
+
